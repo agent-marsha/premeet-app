@@ -295,7 +295,6 @@
         </ul>
       </div>
     </div>
-    <div class="takeaway">Anything already briefed opens <b>instantly from cache</b> — no new compute.</div>
   </section>
 
   <!-- 1 · DISAMBIGUATION -->
@@ -653,10 +652,12 @@ function show(n){
   // the progress rail is brief-progress, so it only exists inside the brief
   bar.style.display = inBrief ? 'block' : 'none';
 
-  // page-direction controls belong to the brief only
-  prevBtn.style.display = inBrief ? 'flex' : 'none';
+  // home: no controls · matches: a back arrow · brief: the full page-direction set
+  prevBtn.style.display = (inBrief || isMatch) ? 'flex' : 'none';
   nextBtn.style.display = inBrief ? 'flex' : 'none';
-  homeBtn.style.display = isHome ? 'none' : 'flex';
+  homeBtn.style.display = inBrief ? 'flex' : 'none';
+  prevBtn.setAttribute('aria-label', isMatch ? 'Back to search' : 'Previous slide');
+  prevBtn.title = isMatch ? 'Back to search' : 'Previous';
 
   if(isHome){
     counter.textContent = 'HOME';
