@@ -40,7 +40,7 @@
     font:600 10px/1 var(--mono);letter-spacing:.2em;color:var(--ink-3)}
   body.on-dark .counter{color:#6E7679}
   .fnav{position:absolute;right:22px;bottom:24px;display:flex;gap:8px;z-index:9}
-  .fnav button{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  .fnav button{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;
     font-size:15px;font-family:inherit;cursor:pointer;
     border:1px solid var(--line);background:#fff;color:var(--ink-2);
     box-shadow:0 2px 8px rgba(16,20,22,.10);transition:transform .12s ease}
@@ -125,8 +125,8 @@
   .search input{border:none;outline:none;flex:1;min-width:0;font-size:14.5px;font-family:inherit;
     color:var(--ink);background:transparent}
   .search input::placeholder{color:var(--ink-3)}
-  .search button{width:34px;height:34px;flex:none;border-radius:7px;border:none;cursor:pointer;
-    background:var(--accent);color:#fff;font-size:15px;font-family:inherit;
+  .search button{width:40px;height:40px;flex:none;border-radius:8px;border:none;cursor:pointer;
+    background:var(--accent);color:#fff;font-size:16px;font-family:inherit;
     display:flex;align-items:center;justify-content:center}
   .search button:active{transform:scale(.95)}
   .search.busy{border-color:var(--accent)}
@@ -325,8 +325,14 @@
 
   <div class="counter" id="counter">HOME</div>
   <div class="fnav">
-    <button id="prev" aria-label="Previous slide" style="display:none">←</button>
-    <button id="next" class="pri" aria-label="Next slide">→</button>
+    <button id="homebtn" aria-label="Back to home" title="Home" style="display:none">
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M3 10.6 12 3.2l9 7.4"/><path d="M5.6 9.4V21h12.8V9.4"/>
+      </svg>
+    </button>
+    <button id="prev" aria-label="Previous slide" title="Previous" style="display:none">←</button>
+    <button id="next" class="pri" aria-label="Next slide" title="Next">→</button>
   </div>
   <div class="toast" id="toast"></div>
 </div>
@@ -338,6 +344,7 @@ var fill = document.getElementById('fill');
 var bar = document.getElementById('bar');
 var counter = document.getElementById('counter');
 var prevBtn = document.getElementById('prev');
+var homeBtn = document.getElementById('homebtn');
 var cur = 0;
 
 /* ---- fit the fixed slide canvas to any viewport ---- */
@@ -365,6 +372,7 @@ function show(n){
   document.body.classList.toggle('on-dark', slides[cur].classList.contains('dark'));
   bar.style.display = isHome ? 'none' : 'block';
   prevBtn.style.display = isHome ? 'none' : 'flex';
+  homeBtn.style.display = isHome ? 'none' : 'flex';
   if(isHome){
     counter.textContent = 'HOME';
   } else {
@@ -380,6 +388,7 @@ document.addEventListener('keydown', function(e){
 });
 document.getElementById('next').onclick = function(){ show(cur+1); };
 prevBtn.onclick = function(){ show(cur-1); };
+homeBtn.onclick = function(){ show(0); };
 
 /* ---- search: simulated pipeline for a NEW person ---- */
 var statusEl = document.getElementById('status');
