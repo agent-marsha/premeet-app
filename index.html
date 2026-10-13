@@ -12,40 +12,41 @@
     --ink:#16181A; --ink-2:#4A5054; --ink-3:#7A8287;
     --line:#E1E4E5; --paper:#FAFAF9; --night:#101314;
     --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --col:640px;                /* content column width — widens per breakpoint */
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html{height:100%;background:#E9E9E7}
-  body{height:100%;background:#E9E9E7;overflow:hidden;overscroll-behavior:none;
+  body{height:100%;overflow:hidden;overscroll-behavior:none;background:#E9E9E7;
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     -webkit-font-smoothing:antialiased;color:var(--ink)}
 
-  /* the slide canvas: centred + scaled on desktop, edge-to-edge on a phone */
-  #stage{--s:1;position:fixed;top:50%;left:50%;width:390px;height:844px;
-    transform:translate(-50%,-50%) scale(var(--s));transform-origin:center center;
-    border-radius:16px;overflow:hidden;background:var(--paper);
-    border:1px solid var(--line);touch-action:pan-y}
-  #stage.full{top:0;left:0;width:100%;height:100vh;height:100dvh;
-    transform:none;border-radius:0;border:none}
-  #stage.full .slide{overflow-y:auto;-webkit-overflow-scrolling:touch}
+  /* the surface is always full-bleed; the reading column sits inside it */
+  #stage{position:fixed;inset:0;height:100dvh;background:var(--paper);overflow:hidden;
+    transition:background .2s ease}
+  body.on-dark #stage{background:var(--night)}
 
-  .slide{position:absolute;inset:0;display:flex;flex-direction:column;
-    padding:36px 26px 78px;background:var(--paper);
+  .slide{position:absolute;top:0;bottom:0;left:0;right:0;margin:0 auto;max-width:var(--col);
+    display:flex;flex-direction:column;padding:36px 26px 92px;
+    background:transparent;overflow-y:auto;overscroll-behavior:contain;
     opacity:0;visibility:hidden;transform:translateX(16px);
     transition:opacity .22s ease,transform .22s ease}
   .slide.active{opacity:1;visibility:visible;transform:none}
-  .slide.dark{background:var(--night)}
-  .slide.centered{justify-content:center}
-  .slide.centered .body{flex:none;margin-top:18px}
-  .slide.centered .takeaway{margin-top:22px}
+  /* Centre the content block when it fits the viewport; degrade to top-aligned +
+     scroll (never clip) when it doesn't. The auto-margin pseudo-elements absorb the
+     free space, and collapse to 0 the moment the content overflows — which is why
+     this works where justify-content:center would clip the top. */
+  .slide::before,.slide::after{content:"";flex:0 0 auto;margin:auto}
 
-  /* ---- chrome: rail + counter + floating nav ---- */
-  .bar{position:absolute;top:0;left:0;right:0;height:2px;background:rgba(122,130,135,.18);z-index:8}
+  /* ---- chrome: rail + counter + floating nav, aligned to the column ---- */
+  .bar{position:fixed;top:0;left:0;right:0;height:2px;background:rgba(122,130,135,.18);z-index:8}
   .bar i{display:block;height:100%;background:var(--accent);transition:width .25s ease}
   body.on-dark .bar i{background:var(--accent-dark)}
-  .counter{position:absolute;left:26px;bottom:32px;z-index:8;
+  .chrome{position:fixed;left:0;right:0;bottom:0;margin:0 auto;max-width:var(--col);
+    height:0;pointer-events:none;z-index:9}
+  .counter{position:absolute;left:26px;bottom:30px;
     font:600 10px/1 var(--mono);letter-spacing:.2em;color:var(--ink-3)}
   body.on-dark .counter{color:#6E7679}
-  .fnav{position:absolute;right:22px;bottom:24px;display:flex;gap:8px;z-index:9}
+  .fnav{position:absolute;right:22px;bottom:20px;display:flex;gap:8px;pointer-events:auto}
   .fnav button{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;
     font-size:15px;font-family:inherit;cursor:pointer;
     border:1px solid var(--line);background:#fff;color:var(--ink-2);
@@ -56,7 +57,7 @@
   body.on-dark .fnav button{background:#1A1E20;border-color:#2B3133;color:#A9B1B5}
   body.on-dark .fnav button.pri{background:var(--accent-dark);border-color:var(--accent-dark);color:#0B2226}
 
-  .toast{position:absolute;top:16px;left:50%;transform:translateX(-50%) translateY(-6px);
+  .toast{position:fixed;top:16px;left:50%;transform:translateX(-50%) translateY(-6px);
     z-index:12;background:#16181A;color:#F4F5F5;font:600 11px/1 var(--mono);letter-spacing:.04em;
     padding:8px 13px;border-radius:999px;opacity:0;pointer-events:none;
     transition:opacity .2s ease,transform .2s ease;white-space:nowrap}
@@ -72,7 +73,7 @@
   .slide.dark h1,.slide.dark h2{color:#F4F5F5}
   .rule{display:block;width:40px;height:2px;background:var(--accent);margin-top:14px;flex:none}
   .slide.dark .rule{background:var(--accent-dark)}
-  .body{flex:1;min-height:0;margin-top:20px;display:flex;flex-direction:column}
+  .body{min-height:0;margin-top:20px;display:flex;flex-direction:column}
   .lead{font-size:14px;line-height:1.5;color:var(--ink-2)}
   .slide.dark .lead{color:#A9B1B5}
   .cap{font-size:11.5px;line-height:1.45;color:var(--ink-3)}
@@ -120,7 +121,7 @@
   .tbl .nm{color:var(--ink);font-weight:600}
   .tbl .num{font-family:var(--mono)}
 
-  .takeaway{margin-top:auto;background:var(--accent-soft);border-left:2px solid var(--accent);
+  .takeaway{margin-top:22px;background:var(--accent-soft);border-left:2px solid var(--accent);
     padding:10px 12px;font-size:11.5px;line-height:1.42;color:#0B4A56}
   .slide.dark .takeaway{background:rgba(79,179,196,.13);color:#BEE3EA;border-left-color:var(--accent-dark)}
   .takeaway b{font-weight:650}
@@ -143,7 +144,6 @@
   .popwrap{margin-top:22px;display:flex;flex-direction:column;min-height:0}
   .pophead{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
   .k2{font:600 9.5px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3)}
-  .k2.acc{color:var(--accent)}
   ul.pop{list-style:none;margin-top:8px;border-top:1px solid var(--line)}
   ul.pop li{display:flex;align-items:center;gap:11px;padding:11px 0;border-bottom:1px solid var(--line);
     cursor:pointer}
@@ -155,7 +155,67 @@
   ul.pop .mt{font-size:11.5px;color:var(--ink-3);margin-top:2px;white-space:nowrap;
     overflow:hidden;text-overflow:ellipsis}
   ul.pop .cnt{font:600 11px/1 var(--mono);color:var(--accent);flex:none}
-  ul.pop .go{color:var(--ink-3);font-size:13px;flex:none}
+
+  /* ================= tablet ================= */
+  @media (min-width:640px){
+    :root{--col:720px}
+    .slide{padding:50px 34px 104px}
+    h1{font-size:36px}
+    h2{font-size:31px}
+    .lead{font-size:15px}
+    .cap{font-size:12px}
+    .takeaway{margin-top:34px;font-size:12px}
+    .marker{font-size:10.5px;margin-bottom:18px}
+    /* multi-column where the width allows */
+    .qgrid{display:grid;grid-template-columns:1fr 1fr;gap:18px 30px}
+    .qgrid .qcell{margin-bottom:0}
+    ul.pts{display:grid;grid-template-columns:1fr 1fr;gap:18px 30px}
+    ul.pts li{grid-template-columns:26px 1fr}
+    .facts2, .facts2 li:first-child{border-top:1px solid var(--line);padding-top:12px}
+    .facts2{display:grid;grid-template-columns:1fr 1fr;gap:14px 30px}
+    .qcell p,ul.bul li,ul.pts .t,.facts .v{font-size:12.5px}
+    .qcell h3{font-size:14.5px}
+    .tbl div{font-size:12.5px;padding:11px 10px 11px 0}
+    .cover-photo{width:146px;height:188px}
+    .pname{font-size:17px} .prole{font-size:12.5px}
+    .avatar{width:58px;height:58px}
+    ul.pop .nm{font-size:14px} ul.pop .mt{font-size:12px}
+    .search input{font-size:15px}
+  }
+
+  /* ================= laptop / desktop ================= */
+  @media (min-width:1024px){
+    :root{--col:920px}
+    .slide{padding:66px 44px 112px}
+    h1{font-size:44px}
+    h2{font-size:36px}
+    .lead{font-size:16px;line-height:1.55}
+    .marker{font-size:11px;margin-bottom:20px}
+    .rule{width:52px}
+    .cap{font-size:12.5px}
+    .takeaway{font-size:12.5px;padding:13px 15px;margin-top:40px}
+    .body{margin-top:26px}
+    .qcell h3{font-size:15.5px}
+    .qcell p,ul.bul li,ul.pts .t,.facts .v{font-size:13.5px;line-height:1.5}
+    ul.pts{grid-template-columns:1fr 1fr;gap:22px 44px}
+    ul.bul li{padding-left:17px}
+    .tbl div{font-size:13px;padding:13px 12px 13px 0}
+    .tbl .hd{font-size:9.5px}
+    .cover-photo{width:172px;height:222px}
+    h2{max-width:20ch}
+    /* homepage becomes a two-column layout */
+    .homegrid{display:grid;grid-template-columns:1fr 1fr;gap:0 52px;align-items:start}
+    .homegrid .popwrap{margin-top:0}
+    ul.pop li{padding:13px 0}
+    .counter{left:34px;bottom:34px}
+    .fnav{right:30px;bottom:26px}
+    .fnav button{width:46px;height:46px;font-size:16px}
+  }
+
+  /* very wide: keep the column readable, add breathing room */
+  @media (min-width:1500px){
+    :root{--col:980px}
+  }
 
   @media (prefers-reduced-motion:reduce){ .slide,.toast{transition:none} }
 </style>
@@ -170,12 +230,15 @@
     <span class="marker">PreMeet</span>
     <h2>Brief yourself before the meeting.</h2>
     <span class="rule"></span>
-    <div class="body">
-      <form class="search" id="searchform" autocomplete="off">
-        <input id="q" type="text" placeholder="Search a name, institution, or ORCID" aria-label="Search for a person">
-        <button type="submit" aria-label="Build brief">→</button>
-      </form>
-      <div class="status" id="status"></div>
+    <div class="body homegrid">
+      <div>
+        <form class="search" id="searchform" autocomplete="off">
+          <input id="q" type="text" placeholder="Search a name, institution, or ORCID" aria-label="Search for a person">
+          <button type="submit" aria-label="Build brief">→</button>
+        </form>
+        <div class="status" id="status"></div>
+        <p class="cap" style="margin-top:12px">New names take about 40 seconds to build.</p>
+      </div>
 
       <div class="popwrap">
         <div class="pophead">
@@ -207,7 +270,7 @@
         </ul>
       </div>
     </div>
-    <div class="takeaway">New names take ~40 seconds to build. Anything already briefed opens <b>instantly from cache</b>.</div>
+    <div class="takeaway">Anything already briefed opens <b>instantly from cache</b> — no new compute.</div>
   </section>
 
   <!-- 1 · COVER -->
@@ -221,7 +284,7 @@
     <span class="rule"></span>
     <div class="body">
       <p class="lead">Open-source sustainability, the human aspects of software engineering, and how AI is reshaping software ecosystems.</p>
-      <p class="cap" style="margin-top:14px;color:#6E7679">Prepared for a first meeting. Tap → to step through the brief.</p>
+      <p class="cap" style="margin-top:14px;color:#6E7679">Prepared for a first meeting. Step through with → .</p>
     </div>
     <div class="takeaway"><b>The short version:</b> he studies why people join open source, why they stay, and why they leave — and now how AI changes that.</div>
   </section>
@@ -239,7 +302,7 @@
           <div class="prole">Associate Professor · School of Informatics, Computing &amp; Cyber Systems</div>
         </div>
       </div>
-      <ul class="facts">
+      <ul class="facts facts2">
         <li><span class="k">Role</span><span class="v">Also <b>Associate Director for Graduate Programs</b> at SICCS.</span></li>
         <li><span class="k">Lab</span><span class="v">Co-leads the <b>RESHAPE Lab</b> with Marco Gerosa.</span></li>
         <li><span class="k">Training</span><span class="v">PhD, University of São Paulo (2015); visiting scholar, UC Irvine.</span></li>
@@ -255,10 +318,12 @@
     <h2>Four threads, one question: how do software communities sustain themselves?</h2>
     <span class="rule"></span>
     <div class="body">
-      <div class="qcell"><span class="n">01</span><h3>Onboarding &amp; retention</h3><p>Why newcomers struggle, what mentoring helps, what makes contributors leave.</p></div>
-      <div class="qcell"><span class="n">02</span><h3>Sustainability &amp; governance</h3><p>Community health, roles in practice, forecasting core-developer inactivity.</p></div>
-      <div class="qcell"><span class="n">03</span><h3>AI × software development</h3><p>Agents that support contributors rather than replace them; GenAI in practice.</p></div>
-      <div class="qcell"><span class="n">04</span><h3>Learning through open source</h3><p>Gamified scaffolding, OSS-Doorway, university↔community bridges.</p></div>
+      <div class="qgrid">
+        <div class="qcell"><span class="n">01</span><h3>Onboarding &amp; retention</h3><p>Why newcomers struggle, what mentoring helps, what makes contributors leave.</p></div>
+        <div class="qcell"><span class="n">02</span><h3>Sustainability &amp; governance</h3><p>Community health, roles in practice, forecasting core-developer inactivity.</p></div>
+        <div class="qcell"><span class="n">03</span><h3>AI × software development</h3><p>Agents that support contributors rather than replace them; GenAI in practice.</p></div>
+        <div class="qcell"><span class="n">04</span><h3>Learning through open source</h3><p>Gamified scaffolding, OSS-Doorway, university↔community bridges.</p></div>
+      </div>
     </div>
   </section>
 
@@ -329,19 +394,22 @@
     <div class="takeaway">Recommended opener: <b>01 and 02</b>. Everything else is a follow-up conversation.</div>
   </section>
 
-  <div class="counter" id="counter">HOME</div>
-  <div class="fnav">
-    <button id="homebtn" aria-label="Back to home" title="Home" style="display:none">
-      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
-           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M3 10.6 12 3.2l9 7.4"/><path d="M5.6 9.4V21h12.8V9.4"/>
-      </svg>
-    </button>
-    <button id="prev" aria-label="Previous slide" title="Previous" style="display:none">←</button>
-    <button id="next" class="pri" aria-label="Next slide" title="Next">→</button>
+  <div class="chrome">
+    <div class="counter" id="counter">HOME</div>
+    <div class="fnav">
+      <button id="homebtn" aria-label="Back to home" title="Home" style="display:none">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 10.6 12 3.2l9 7.4"/><path d="M5.6 9.4V21h12.8V9.4"/>
+        </svg>
+      </button>
+      <button id="prev" aria-label="Previous slide" title="Previous" style="display:none">←</button>
+      <button id="next" class="pri" aria-label="Next slide" title="Next">→</button>
+    </div>
   </div>
-  <div class="toast" id="toast"></div>
 </div>
+
+<div class="toast" id="toast"></div>
 
 <script>
 var stage = document.getElementById('stage');
@@ -352,20 +420,6 @@ var counter = document.getElementById('counter');
 var prevBtn = document.getElementById('prev');
 var homeBtn = document.getElementById('homebtn');
 var cur = 0;
-
-/* ---- fit the fixed slide canvas to any viewport ---- */
-function fit(){
-  var vw = window.innerWidth, vh = window.innerHeight;
-  // phone-shaped viewport → fill the screen edge-to-edge (no inset card, no grey band)
-  if(vh > vw && vw <= 560){
-    stage.classList.add('full');
-  } else {
-    stage.classList.remove('full');
-    stage.style.setProperty('--s', Math.min(vw / 390, vh / 844) * 0.96);
-  }
-}
-window.addEventListener('resize', fit);
-window.addEventListener('orientationchange', fit);
 
 /* ---- toast ---- */
 var toastEl = document.getElementById('toast'), toastT;
@@ -391,6 +445,7 @@ function show(n){
     counter.innerHTML = '<span>' + String(cur).padStart(2,'0') + '</span> / 07';
     fill.style.width = (cur / (slides.length - 1) * 100) + '%';
   }
+  slides[cur].scrollTop = 0;
 }
 document.addEventListener('keydown', function(e){
   // never hijack keys while the user is typing in a field (space was navigating!)
@@ -427,7 +482,7 @@ function buildFor(name){
       statusEl.classList.remove('on');
       form.classList.remove('busy');
       busy = false;
-      show(1);                                  // open the brief
+      show(1);
       toast('Built for ' + name + ' · demo data');
     }
   }, 330);
@@ -447,7 +502,7 @@ document.getElementById('pop').addEventListener('click', function(e){
   toast('Served from cache · no new compute');
 });
 
-/* ---- swipe ---- */
+/* ---- swipe (ignored on home) ---- */
 var x0 = null;
 stage.addEventListener('touchstart', function(e){ x0 = e.changedTouches[0].clientX; }, {passive:true});
 stage.addEventListener('touchend', function(e){
@@ -457,7 +512,6 @@ stage.addEventListener('touchend', function(e){
   if(Math.abs(dx) > 40) show(dx < 0 ? cur+1 : cur-1);
 }, {passive:true});
 
-fit();
 show(0);
 </script>
 </body>
