@@ -56,17 +56,17 @@
   body.on-dark .fnav button{background:#1A1E20;border-color:#2B3133;color:#A9B1B5}
   body.on-dark .fnav button.pri{background:var(--accent-dark);border-color:var(--accent-dark);color:#0B2226}
 
-  /* back arrow, pinned to the top-left of the reading column (matches step only) */
+  /* home button, pinned to the top-left of the reading column */
   .chromeTop{position:fixed;top:0;left:0;right:0;margin:0 auto;max-width:var(--col);
     height:0;pointer-events:none;z-index:9}
-  .backbtn{position:absolute;left:24px;top:18px;width:44px;height:44px;border-radius:50%;
+  .topbtn{position:absolute;left:24px;top:18px;width:44px;height:44px;border-radius:50%;
     display:none;align-items:center;justify-content:center;font-size:16px;font-family:inherit;
     cursor:pointer;border:1px solid var(--line);background:#fff;color:var(--ink-2);
     box-shadow:0 2px 8px rgba(16,20,22,.10);pointer-events:auto;transition:transform .12s ease}
-  .backbtn:active{transform:scale(.94)}
-  body.on-dark .backbtn{background:#1A1E20;border-color:#2B3133;color:#A9B1B5}
+  .topbtn:active{transform:scale(.94)}
+  body.on-dark .topbtn{background:#1A1E20;border-color:#2B3133;color:#A9B1B5}
 
-  /* sits above the bottom-right controls so it never covers the top-left back arrow */
+  /* sits above the bottom-right controls so it never covers the top-left home button */
   .toast{position:fixed;bottom:86px;left:50%;transform:translateX(-50%) translateY(6px);
     z-index:12;background:#16181A;color:#F4F5F5;font:600 11px/1 var(--mono);letter-spacing:.04em;
     padding:8px 13px;border-radius:999px;opacity:0;pointer-events:none;
@@ -447,17 +447,17 @@
   </section>
 
   <div class="chromeTop">
-    <button id="backbtn" class="backbtn" aria-label="Back to search" title="Back to search">←</button>
+    <button id="homeTop" class="topbtn" aria-label="Home" title="Home">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M3 10.6 12 3.2l9 7.4"/><path d="M5.6 9.4V21h12.8V9.4"/>
+      </svg>
+    </button>
   </div>
   <div class="chrome">
     <div class="counter" id="counter">HOME</div>
     <div class="fnav">
-      <button id="homebtn" aria-label="Back to home" title="Home" style="display:none">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
-             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M3 10.6 12 3.2l9 7.4"/><path d="M5.6 9.4V21h12.8V9.4"/>
-        </svg>
-      </button>
+      <button id="back" aria-label="Back" title="Back" style="display:none">←</button>
       <button id="next" class="pri" aria-label="Next slide" title="Next" style="display:none">→</button>
     </div>
   </div>
@@ -472,8 +472,8 @@ var fill = document.getElementById('fill');
 var bar = document.getElementById('bar');
 var counter = document.getElementById('counter');
 var nextBtn = document.getElementById('next');
-var homeBtn = document.getElementById('homebtn');
-var backBtn = document.getElementById('backbtn');
+var backBtn = document.getElementById('back');
+var homeTop = document.getElementById('homeTop');
 var cur = 0;
 
 /* slide map: 0 = home, 1 = disambiguation, 2..8 = the seven brief slides */
@@ -670,13 +670,11 @@ function show(n){
   // the progress rail is brief-progress, so it only exists inside the brief
   bar.style.display = inBrief ? 'block' : 'none';
 
-  // home: nothing. Everywhere else: back arrow top-left.
-  // The brief additionally gets home + next, bottom-right.
+  // top-left: home button, on every page except home itself
+  // bottom-right: page-direction controls, inside the brief only
+  homeTop.style.display = isHome ? 'none' : 'flex';
+  backBtn.style.display = inBrief ? 'flex' : 'none';
   nextBtn.style.display = inBrief ? 'flex' : 'none';
-  homeBtn.style.display = inBrief ? 'flex' : 'none';
-  backBtn.style.display = (isMatch || inBrief) ? 'flex' : 'none';
-  backBtn.setAttribute('aria-label', isMatch ? 'Back to search' : 'Back');
-  backBtn.title = isMatch ? 'Back to search' : 'Back';
   // the counter would sit on top of the scrolling candidate list, and it only
   // duplicates the "MATCHES · n" marker at the top of that slide
   counter.style.display = isMatch ? 'none' : 'block';
@@ -710,8 +708,8 @@ document.addEventListener('keydown', function(e){
   }
 });
 nextBtn.onclick = function(){ if(cur >= BRIEF_START) show(cur+1); };
-homeBtn.onclick = function(){ show(HOME); };
-backBtn.onclick = back;      // matches → search · brief → previous slide (home from the cover)
+backBtn.onclick = back;                   // previous slide · home from the cover
+homeTop.onclick = function(){ show(HOME); };
 
 /* ---- search: ALWAYS resolve to a selectable list of records ---- */
 var form = document.getElementById('searchform');
