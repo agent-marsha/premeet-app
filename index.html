@@ -137,9 +137,6 @@
     display:flex;align-items:center;justify-content:center}
   .search button:active{transform:scale(.95)}
   .search.busy{border-color:var(--accent)}
-  .status{font:600 10.5px/1.4 var(--mono);letter-spacing:.06em;color:var(--accent);
-    margin-top:9px;display:none}
-  .status.on{display:block}
 
   .popwrap{margin-top:22px;display:flex;flex-direction:column;min-height:0}
   .pophead{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
@@ -172,6 +169,8 @@
     padding:3px 5px;margin-left:7px;vertical-align:1px;white-space:nowrap}
   ul.cands .cu{font-size:12.5px;color:var(--ink);margin-top:4px;font-weight:500}
   ul.cands .cf{font-size:11.5px;color:var(--ink-3);margin-top:3px;line-height:1.4}
+  ul.cands li.newrec .av{background:#fff;border:1px dashed #C9CDD2;color:var(--ink-3);font-size:17px}
+  ul.cands li.newrec .cu{color:var(--ink-3);font-weight:500}
 
   /* ================= tablet ================= */
   @media (min-width:640px){
@@ -255,8 +254,7 @@
           <input id="q" type="text" placeholder="Search a name, institution, or ORCID" aria-label="Search for a person">
           <button type="submit" aria-label="Build brief">→</button>
         </form>
-        <div class="status" id="status"></div>
-        <p class="cap" style="margin-top:12px">Names collide. A partial match lists every record and you pick the right scholar.</p>
+        <p class="cap" style="margin-top:12px">Every search lists the matching records — you pick the right scholar.</p>
       </div>
 
       <div class="popwrap">
@@ -295,7 +293,7 @@
   <!-- 1 · DISAMBIGUATION -->
   <section class="slide" id="matches">
     <span class="marker" id="matchMarker">Matches</span>
-    <h2>More than one record matches. Which scholar are you meeting?</h2>
+    <h2 id="matchTitle">More than one record matches. Which scholar are you meeting?</h2>
     <span class="rule"></span>
     <div class="body">
       <ul class="cands" id="cands"></ul>
@@ -479,6 +477,8 @@ var PEOPLE = [
     f:"Information Systems", m:"Doctoral record · 2015", ini:"IS" },
   { n:"Marco Aurélio Gerosa", u:"Northern Arizona University",
     f:"Computer Science · software ecosystems", m:"Co-lead, RESHAPE Lab", ini:"MG" },
+  { n:"Marco Aurélio Gerosa", u:"University of São Paulo",
+    f:"Computer Science · software engineering", m:"Faculty record · 2010–2022", ini:"MG" },
   { n:"Anita Sarma", u:"Oregon State University",
     f:"Computer Science · human aspects of software engineering", m:"", ini:"AS" },
   { n:"Bianca Trinkenreich", u:"Industry · OSS research",
@@ -500,33 +500,64 @@ function findMatches(q){
   });
 }
 
-/* ---- build the disambiguation list ---- */
-function renderMatches(list){
+/* ---- build the disambiguation list (always shown after a search) ---- */
+function row(p){
+  var li = document.createElement('li');
+  li.tabIndex = 0;
+  li.setAttribute('role', 'button');
+  li.innerHTML =
+    '<span class="av">' + esc(p.ini) + '</span>' +
+    '<div class="ci">' +
+      '<div class="cn">' + esc(p.n) + (p.best ? '<span class="tag">Best match</span>' : '') + '</div>' +
+      '<div class="cu">' + esc(p.u) + '</div>' +
+      '<div class="cf">' + esc(p.f) + (p.m ? ' · ' + esc(p.m) : '') + '</div>' +
+    '</div>';
+  li.addEventListener('click', function(){ selectCandidate(p); });
+  li.addEventListener('keydown', function(e){
+    if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); e.stopPropagation(); selectCandidate(p); }
+  });
+  return li;
+}
+function newRow(query, label){
+  var li = row({ n: query, u: label, f: 'Build a new brief from scratch', m: '', ini: '+' });
+  li.classList.add('newrec');
+  return li;
+}
+
+function renderMatches(list, query){
   var ul = document.getElementById('cands');
+  var title = document.getElementById('matchTitle');
   document.getElementById('matchMarker').textContent = 'Matches · ' + list.length;
   ul.innerHTML = '';
-  list.forEach(function(p){
-    var li = document.createElement('li');
-    li.tabIndex = 0;
-    li.setAttribute('role', 'button');
-    li.innerHTML =
-      '<span class="av">' + esc(p.ini) + '</span>' +
-      '<div class="ci">' +
-        '<div class="cn">' + esc(p.n) + (p.subject ? '<span class="tag">Best match</span>' : '') + '</div>' +
-        '<div class="cu">' + esc(p.u) + '</div>' +
-        '<div class="cf">' + esc(p.f) + (p.m ? ' · ' + esc(p.m) : '') + '</div>' +
-      '</div>';
-    li.addEventListener('click', function(){ selectCandidate(p); });
-    li.addEventListener('keydown', function(e){
-      if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); e.stopPropagation(); selectCandidate(p); }
-    });
-    ul.appendChild(li);
-  });
+
+  if(list.length >= 2){
+    title.textContent = 'More than one record matches. Which scholar are you meeting?';
+    list[0].best = true;
+    list.forEach(function(p){ ul.appendChild(row(p)); });
+  } else if(list.length === 1){
+    title.textContent = 'One record matched. Is this the right scholar?';
+    list[0].best = true;
+    ul.appendChild(row(list[0]));
+    ul.appendChild(newRow(query, 'None of these'));
+  } else {
+    title.textContent = 'No indexed record for that name.';
+    ul.appendChild(newRow(query, 'No indexed record'));
+  }
 }
 
 function selectCandidate(p){
+  if(p.build || p.ini === '+'){ buildNew(p.n); return; }
   toast('Selected · ' + p.n + ' — ' + p.u);
   show(BRIEF_START);
+}
+
+/* build a brand-new record (the reserve → settle pipeline, abbreviated) */
+function buildNew(name){
+  toast('Building brief for ' + name + '…');
+  setTimeout(function(){
+    show(BRIEF_START);
+    toast('Built for ' + name + ' · demo data');
+  }, 1100);
 }
 
 /* ---- slide engine ---- */
@@ -579,48 +610,16 @@ nextBtn.onclick = function(){ if(cur >= BRIEF_START) show(cur+1); };
 prevBtn.onclick = back;
 homeBtn.onclick = function(){ show(HOME); };
 
-/* ---- search: resolve → maybe disambiguate → brief ---- */
-var statusEl = document.getElementById('status');
+/* ---- search: ALWAYS resolve to a selectable list of records ---- */
 var form = document.getElementById('searchform');
 var q = document.getElementById('q');
-var busy = false;
-
-function buildFor(name){
-  if(busy) return;
-  busy = true;
-  form.classList.add('busy');
-  var steps = ['Resolving identity…','Fetching sources…','Extracting facts…','Synthesizing brief…'];
-  var k = 0;
-  statusEl.textContent = steps[0];
-  statusEl.classList.add('on');
-  var iv = setInterval(function(){
-    k++;
-    if(k < steps.length){ statusEl.textContent = steps[k]; }
-    else {
-      clearInterval(iv);
-      statusEl.classList.remove('on');
-      form.classList.remove('busy');
-      busy = false;
-      show(BRIEF_START);
-      toast('Built for ' + name + ' · demo data');
-    }
-  }, 330);
-}
 
 form.addEventListener('submit', function(e){
   e.preventDefault();
   var name = q.value.trim();
   if(!name){ q.focus(); return; }
-  var m = findMatches(name);
-  if(m.length >= 2){
-    renderMatches(m);
-    show(MATCHES);                       // ambiguous → let the user choose
-  } else if(m.length === 1){
-    show(BRIEF_START);
-    toast('Matched ' + m[0].n + ' · ' + m[0].u);
-  } else {
-    buildFor(name);                      // unknown → build a new brief
-  }
+  renderMatches(findMatches(name), name);
+  show(MATCHES);              // one more step after search — always
 });
 
 /* ---- popular list: cached, so it opens instantly ---- */
