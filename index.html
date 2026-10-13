@@ -73,7 +73,9 @@
   .slide.dark h1,.slide.dark h2{color:#F4F5F5}
   .rule{display:block;width:40px;height:2px;background:var(--accent);margin-top:14px;flex:none}
   .slide.dark .rule{background:var(--accent-dark)}
-  .body{min-height:0;margin-top:20px;display:flex;flex-direction:column}
+  /* must not shrink below its content, or a long candidate list overflows the
+     body box and the takeaway band lands on top of the rows */
+  .body{flex:0 0 auto;margin-top:20px;display:flex;flex-direction:column}
   .lead{font-size:14px;line-height:1.5;color:var(--ink-2)}
   .slide.dark .lead{color:#A9B1B5}
   .cap{font-size:11.5px;line-height:1.45;color:var(--ink-3)}
@@ -171,6 +173,12 @@
   ul.cands .cf{font-size:11.5px;color:var(--ink-3);margin-top:3px;line-height:1.4}
   ul.cands li.newrec .av{background:#fff;border:1px dashed #C9CDD2;color:var(--ink-3);font-size:17px}
   ul.cands li.newrec .cu{color:var(--ink-3);font-weight:500}
+  ul.cands li.loading{display:block;padding:16px 2px;cursor:default;
+    font:600 11px/1.5 var(--mono);letter-spacing:.08em;color:var(--accent);
+    border-bottom:1px solid var(--line)}
+  ul.cands .ch{font-size:11px;color:var(--ink-3);margin-top:3px;line-height:1.4}
+  .src{margin-top:12px;font:600 10px/1.5 var(--mono);letter-spacing:.08em;
+    text-transform:uppercase;color:var(--ink-3)}
 
   /* ================= tablet ================= */
   @media (min-width:640px){
@@ -297,8 +305,9 @@
     <span class="rule"></span>
     <div class="body">
       <ul class="cands" id="cands"></ul>
+      <p class="src" id="matchSrc"></p>
     </div>
-    <div class="takeaway">The brief is built from the record you choose — check the <b>affiliation</b>, not just the name.</div>
+    <div class="takeaway" id="matchNote">The brief is built from the record you choose — check the <b>affiliation</b>, not just the name.</div>
   </section>
 
   <!-- 2 · COVER -->
@@ -500,17 +509,75 @@ function findMatches(q){
   });
 }
 
-/* ---- build the disambiguation list (always shown after a search) ---- */
+/* ================= real author search — OpenAlex =================
+   Google Scholar has no API and sends no CORS headers, so a static page
+   cannot query it. OpenAlex is the programmatic equivalent: 250M+ works,
+   free, no key needed, and it exposes author affiliation history — which
+   is exactly the disambiguator this step needs.                              */
+var OA = 'https://api.openalex.org/authors';
+
+function initials(name){
+  return (name || '?').split(/\s+/).filter(function(w){ return /[A-Za-z\u00C0-\u024F]/.test(w); })
+    .slice(0, 2).map(function(w){ return w[0].toUpperCase(); }).join('');
+}
+function yearRange(ys){
+  return (ys && ys.length) ? Math.min.apply(null, ys) + '\u2013' + Math.max.apply(null, ys) : '';
+}
+function mapAuthor(a){
+  var li = (a.last_known_institutions && a.last_known_institutions[0]) || null;
+  var hist = (a.affiliations || []).slice(0, 2).map(function(x){
+    var r = yearRange(x.years);
+    return x.institution.display_name + (r ? ' ' + r : '');
+  }).join(' \u00b7 ');
+  return {
+    n: a.display_name || 'Unknown author',
+    ini: initials(a.display_name),
+    u: li ? li.display_name : 'Affiliation not listed',
+    works: a.works_count || 0,
+    h: (a.summary_stats && a.summary_stats.h_index) || 0,
+    orcid: (a.orcid || '').replace(/^https?:\/\/orcid\.org\//, ''),
+    hist: hist,
+    real: true
+  };
+}
+/* OpenAlex author search is fuzzy — it surfaces co-authors and loosely related
+   people. Rank by how well the *name* actually matches before anything else,
+   then by prominence, so the collision list reads as a real disambiguation. */
+function scoreAuthor(p, query){
+  var nm = p.n.toLowerCase(), qq = query.trim().toLowerCase();
+  var terms = qq.split(/\s+/).filter(function(t){ return t.length >= 2; });
+  var s = 0;
+  if(nm.indexOf(qq) !== -1) s += 4;                        // whole phrase is in the name
+  terms.forEach(function(t){ if(nm.indexOf(t) !== -1) s += 2; });
+  return s;
+}
+
+function fetchAuthors(qv){
+  var url = OA + '?search=' + encodeURIComponent(qv) + '&per-page=8&mailto=premeet-demo@example.com';
+  return fetch(url, { headers: { 'Accept': 'application/json' } }).then(function(r){
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  });
+}
+
+/* ---- candidate rows ---- */
 function row(p){
   var li = document.createElement('li');
   li.tabIndex = 0;
   li.setAttribute('role', 'button');
+  var meta = [];
+  if(p.works) meta.push(p.works.toLocaleString() + ' works');
+  if(p.h) meta.push('h-index ' + p.h);
+  if(p.orcid) meta.push('ORCID ' + p.orcid);
+  if(p.f) meta.push(p.f);
+  if(p.m) meta.push(p.m);
   li.innerHTML =
     '<span class="av">' + esc(p.ini) + '</span>' +
     '<div class="ci">' +
       '<div class="cn">' + esc(p.n) + (p.best ? '<span class="tag">Best match</span>' : '') + '</div>' +
       '<div class="cu">' + esc(p.u) + '</div>' +
-      '<div class="cf">' + esc(p.f) + (p.m ? ' · ' + esc(p.m) : '') + '</div>' +
+      (meta.length ? '<div class="cf">' + esc(meta.join(' \u00b7 ')) + '</div>' : '') +
+      (p.hist ? '<div class="ch">' + esc(p.hist) + '</div>' : '') +
     '</div>';
   li.addEventListener('click', function(){ selectCandidate(p); });
   li.addEventListener('keydown', function(e){
@@ -519,44 +586,57 @@ function row(p){
   return li;
 }
 function newRow(query, label){
-  var li = row({ n: query, u: label, f: 'Build a new brief from scratch', m: '', ini: '+' });
+  var li = row({ n: query, u: label, f: 'Build a new brief from scratch', m: '', hist: '', ini: '+' });
   li.classList.add('newrec');
   return li;
 }
 
-function renderMatches(list, query){
+function showLoading(qv){
+  document.getElementById('matchMarker').textContent = 'Searching';
+  document.getElementById('matchTitle').textContent = 'Searching \u201c' + qv + '\u201d\u2026';
+  document.getElementById('matchSrc').textContent = '';
+  document.getElementById('matchNote').innerHTML = 'Querying the OpenAlex author index.';
+  document.getElementById('cands').innerHTML = '<li class="loading">Resolving author records\u2026</li>';
+}
+
+function renderMatches(list, query, total, note){
   var ul = document.getElementById('cands');
   var title = document.getElementById('matchTitle');
-  document.getElementById('matchMarker').textContent = 'Matches · ' + list.length;
+  var src = document.getElementById('matchSrc');
+  var noteEl = document.getElementById('matchNote');
+  var n = (typeof total === 'number') ? total : list.length;
+
+  document.getElementById('matchMarker').textContent = 'Matches \u00b7 ' + n.toLocaleString();
   ul.innerHTML = '';
 
-  if(list.length >= 2){
-    title.textContent = 'More than one record matches. Which scholar are you meeting?';
-    list[0].best = true;
-    list.forEach(function(p){ ul.appendChild(row(p)); });
-  } else if(list.length === 1){
-    title.textContent = 'One record matched. Is this the right scholar?';
-    list[0].best = true;
-    ul.appendChild(row(list[0]));
-    ul.appendChild(newRow(query, 'None of these'));
+  if(list.length){
+    title.textContent = list.length === 1
+      ? 'One record matched. Is this the right scholar?'
+      : 'More than one record matches. Which scholar are you meeting?';
+    list.forEach(function(p, idx){ p.best = (idx === 0); ul.appendChild(row(p)); });
+    if(list.length === 1) ul.appendChild(newRow(query, 'None of these'));
+    noteEl.innerHTML = 'The brief is built from the record you choose \u2014 check the <b>affiliation</b>, not just the name.';
   } else {
     title.textContent = 'No indexed record for that name.';
     ul.appendChild(newRow(query, 'No indexed record'));
+    noteEl.innerHTML = 'Nothing indexed for that name \u2014 build a fresh record, or search a surname instead.';
   }
+  src.textContent = note || ('Source: OpenAlex (CC0)' +
+    (n > list.length ? ' \u00b7 showing the top ' + list.length + ' of ' + n.toLocaleString() : ''));
 }
 
 function selectCandidate(p){
-  if(p.build || p.ini === '+'){ buildNew(p.n); return; }
-  toast('Selected · ' + p.n + ' — ' + p.u);
+  if(p.ini === '+'){ buildNew(p.n); return; }
+  toast('Selected \u00b7 ' + p.n + ' \u2014 ' + p.u);
   show(BRIEF_START);
 }
 
 /* build a brand-new record (the reserve → settle pipeline, abbreviated) */
 function buildNew(name){
-  toast('Building brief for ' + name + '…');
+  toast('Building brief for ' + name + '\u2026');
   setTimeout(function(){
     show(BRIEF_START);
-    toast('Built for ' + name + ' · demo data');
+    toast('Built for ' + name + ' \u00b7 demo data');
   }, 1100);
 }
 
@@ -613,13 +693,30 @@ homeBtn.onclick = function(){ show(HOME); };
 /* ---- search: ALWAYS resolve to a selectable list of records ---- */
 var form = document.getElementById('searchform');
 var q = document.getElementById('q');
+var reqId = 0;
+
+function runSearch(name){
+  var id = ++reqId;
+  showLoading(name);
+  show(MATCHES);                       // one more step after search — always
+  fetchAuthors(name).then(function(d){
+    if(id !== reqId) return;           // a newer search superseded this one
+    var list = (d.results || []).map(mapAuthor);
+    list.forEach(function(p){ p.score = scoreAuthor(p, name); });
+    list.sort(function(a,b){ return (b.score - a.score) || (b.works - a.works); });
+    renderMatches(list, name, d.meta && d.meta.count);
+  }).catch(function(){
+    if(id !== reqId) return;
+    var local = findMatches(name);     // offline / blocked → bundled sample
+    renderMatches(local, name, local.length, 'Offline \u00b7 showing bundled sample records');
+  });
+}
 
 form.addEventListener('submit', function(e){
   e.preventDefault();
   var name = q.value.trim();
   if(!name){ q.focus(); return; }
-  renderMatches(findMatches(name), name);
-  show(MATCHES);              // one more step after search — always
+  runSearch(name);
 });
 
 /* ---- popular list: cached, so it opens instantly ---- */
