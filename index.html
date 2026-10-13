@@ -64,8 +64,10 @@
     cursor:pointer;border:1px solid var(--line);background:#fff;color:var(--ink-2);
     box-shadow:0 2px 8px rgba(16,20,22,.10);pointer-events:auto;transition:transform .12s ease}
   .backbtn:active{transform:scale(.94)}
+  body.on-dark .backbtn{background:#1A1E20;border-color:#2B3133;color:#A9B1B5}
 
-  .toast{position:fixed;top:16px;left:50%;transform:translateX(-50%) translateY(-6px);
+  /* sits above the bottom-right controls so it never covers the top-left back arrow */
+  .toast{position:fixed;bottom:86px;left:50%;transform:translateX(-50%) translateY(6px);
     z-index:12;background:#16181A;color:#F4F5F5;font:600 11px/1 var(--mono);letter-spacing:.04em;
     padding:8px 13px;border-radius:999px;opacity:0;pointer-events:none;
     transition:opacity .2s ease,transform .2s ease;white-space:nowrap;max-width:92vw;
@@ -252,10 +254,10 @@
 
   @media (min-width:1500px){ :root{--col:980px} }
 
-  /* matches: leave room for the top-left back arrow */
-  #matches{padding-top:88px}
-  @media (min-width:640px){ #matches{padding-top:100px} }
-  @media (min-width:1024px){ #matches{padding-top:116px} }
+  /* every slide except home leaves room for the top-left back arrow */
+  .slide:not(#home){padding-top:88px}
+  @media (min-width:640px){ .slide:not(#home){padding-top:100px} }
+  @media (min-width:1024px){ .slide:not(#home){padding-top:116px} }
 
   @media (prefers-reduced-motion:reduce){ .slide,.toast{transition:none} }
 </style>
@@ -456,7 +458,6 @@
           <path d="M3 10.6 12 3.2l9 7.4"/><path d="M5.6 9.4V21h12.8V9.4"/>
         </svg>
       </button>
-      <button id="prev" aria-label="Previous slide" title="Previous" style="display:none">←</button>
       <button id="next" class="pri" aria-label="Next slide" title="Next" style="display:none">→</button>
     </div>
   </div>
@@ -470,7 +471,6 @@ var slides = [].slice.call(document.querySelectorAll('.slide'));
 var fill = document.getElementById('fill');
 var bar = document.getElementById('bar');
 var counter = document.getElementById('counter');
-var prevBtn = document.getElementById('prev');
 var nextBtn = document.getElementById('next');
 var homeBtn = document.getElementById('homebtn');
 var backBtn = document.getElementById('backbtn');
@@ -670,11 +670,13 @@ function show(n){
   // the progress rail is brief-progress, so it only exists inside the brief
   bar.style.display = inBrief ? 'block' : 'none';
 
-  // home: nothing · matches: back arrow top-left · brief: full page-direction set
-  prevBtn.style.display = inBrief ? 'flex' : 'none';
+  // home: nothing. Everywhere else: back arrow top-left.
+  // The brief additionally gets home + next, bottom-right.
   nextBtn.style.display = inBrief ? 'flex' : 'none';
   homeBtn.style.display = inBrief ? 'flex' : 'none';
-  backBtn.style.display = isMatch ? 'flex' : 'none';
+  backBtn.style.display = (isMatch || inBrief) ? 'flex' : 'none';
+  backBtn.setAttribute('aria-label', isMatch ? 'Back to search' : 'Back');
+  backBtn.title = isMatch ? 'Back to search' : 'Back';
   // the counter would sit on top of the scrolling candidate list, and it only
   // duplicates the "MATCHES · n" marker at the top of that slide
   counter.style.display = isMatch ? 'none' : 'block';
@@ -708,9 +710,8 @@ document.addEventListener('keydown', function(e){
   }
 });
 nextBtn.onclick = function(){ if(cur >= BRIEF_START) show(cur+1); };
-prevBtn.onclick = back;
 homeBtn.onclick = function(){ show(HOME); };
-backBtn.onclick = function(){ show(HOME); };
+backBtn.onclick = back;      // matches → search · brief → previous slide (home from the cover)
 
 /* ---- search: ALWAYS resolve to a selectable list of records ---- */
 var form = document.getElementById('searchform');
